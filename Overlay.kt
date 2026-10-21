@@ -8,59 +8,49 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 
-/** طبقة تعديل الأزرار فوق اللعبة: اسحب كل رقم فوق زره ثم اضغط «تم». */
+/** طبقة تعديل الأزرار فوق اللعبة: اسحب كل زر فوق مكانه في اللعبة ثم «تم». */
 class Overlay(private val ctx: Context, private val onClosed: () -> Unit) {
 
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val root = FrameLayout(ctx)
     private val markers = LinkedHashMap<Int, TextView>()
-    private val d = ctx.resources.displayMetrics.density
-    private val size = (60 * d).toInt()
+    private val size = ctx.dp(58)
 
     fun show() {
-        root.setBackgroundColor(0x99000000.toInt())
+        root.setBackgroundColor(0xAA000000.toInt())
 
-        val hint = TextView(ctx).apply {
-            text = "اسحب كل رقم فوق زره في اللعبة (C = مكان بداية سحب الكاميرا)"
-            setTextColor(Color.WHITE)
-            textSize = 14f
+        val hint = ctx.text("اسحب كل زر فوق مكانه في اللعبة (C = بداية سحب الكاميرا)", 13f, Color.WHITE).apply {
             gravity = Gravity.CENTER
+            setPadding(ctx.dp(12), 0, ctx.dp(12), 0)
         }
-        val done = Button(ctx).apply {
-            text = "تم"
-            setOnClickListener { save(); close() }
-        }
+        val done = ctx.chip("تم ✓", Ui.GREEN) { save(); close() }
+        val cancel = ctx.chip("إلغاء", Ui.RED) { close() }
         val bar = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, (24 * d).toInt(), 0, 0)
-            addView(hint)
+            setPadding(ctx.dp(8), ctx.dp(24), ctx.dp(8), ctx.dp(8))
+            addView(cancel)
+            addView(hint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(done)
         }
-        root.addView(
-            bar,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP
-            )
-        )
+        root.addView(bar, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
-        for (id in 0..Layout.BUTTONS) {
+        for (id in listOf(0) + Layout.ids(ctx)) {
+            val lab = Layout.label(ctx, id)
             val tv = TextView(ctx).apply {
-                text = if (id == 0) "C" else "$id"
+                text = lab
                 setTextColor(Color.WHITE)
-                textSize = 20f
+                textSize = if (lab.length > 2) 13f else 20f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(if (id == 0) 0xCC2E7D32.toInt() else 0xCC1E88E5.toInt())
-                    setStroke((2 * d).toInt(), Color.WHITE)
+                    setColor(if (id == 0) 0xDD22B573.toInt() else 0xDD3D7BFF.toInt())
+                    setStroke(ctx.dp(2), Color.WHITE)
                 }
             }
             var ox = 0f
