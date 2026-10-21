@@ -1,0 +1,38 @@
+name: Import source bundle and build APK
+on:
+  push:
+    paths:
+      - 'source-bundle.base64'
+      - '.github/workflows/import.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract project files into repository root
+        run: |
+          base64 -d source-bundle.base64 > /tmp/source.zip
+          unzip -o /tmp/source.zip -d .
+          rm source-bundle.base64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import TwoPhonePad v0.1 source files" || true
+          git push
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK
+        run: gradle assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TwoPhonePad-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
