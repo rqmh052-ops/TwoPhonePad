@@ -8,7 +8,7 @@ import java.util.UUID
 
 /**
  * البروتوكول (أسطر نصية UTF-8) — نفسه يعمل فوق Wi-Fi/TCP وفوق Bluetooth:
- *  تحكم -> شاشة:  HELLO <pin> <name> | CFG 1:A,2:B | SENS 2.0 | D id | U id | P D | P M dx dy | P U | PING t
+ *  تحكم -> شاشة:  HELLO <pin> <name> | CFG 1:A,2:B | SENS 2.0 | D id | U id | T id | DM id dx dy | P D | P M dx dy | P U | PING t
  *  شاشة -> تحكم:  OK <name> | NO | PONG t
  */
 object Proto {

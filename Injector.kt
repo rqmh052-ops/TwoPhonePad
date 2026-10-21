@@ -22,6 +22,9 @@ object Injector {
     private var injectMethod: Method? = null
     private var lastTry = 0L
 
+    /** آخر خطأ حقن (null = يعمل). يظهر في شاشة الاستقبال للتشخيص. */
+    @Volatile var lastError: String? = null
+
     private val active = LinkedHashMap<Int, FloatArray>() // رقم الإصبع -> [x, y]
     private var downTime = 0L
 
@@ -42,6 +45,7 @@ object Injector {
             true
         } catch (t: Throwable) {
             Log.e(TAG, "Injector init failed (is Shizuku running + permission granted?)", t)
+            lastError = "Shizuku غير جاهز: ${t.message ?: t.javaClass.simpleName}"
             false
         }
     }
@@ -78,6 +82,10 @@ object Injector {
         active.remove(id)
     }
 
+    /** موقع الإصبع الحالي (نسخة) أو null لو غير مضغوط. */
+    @Synchronized
+    fun pos(id: Int): FloatArray? = active[id]?.copyOf()
+
     @Synchronized
     fun releaseAll() {
         for (id in active.keys.toList()) up(id)
@@ -104,8 +112,15 @@ object Injector {
         )
         try {
             injectMethod?.invoke(inputManager, ev, 0) // 0 = ASYNC
+            lastError = null
         } catch (t: Throwable) {
             Log.e(TAG, "inject failed", t)
+            val c = t.cause ?: t
+            lastError = c.message ?: c.javaClass.simpleName
+            // لو مات ربط Shizuku يبقى الكائن القديم ميتاً للأبد؛ نصفّره ليُعاد بناؤه تلقائياً (كل ثانيتين كحد أقصى)
+            injectMethod = null
+            inputManager = null
+            active.clear() // النظام لم يستلم هذه الأصابع؛ نبدأ نظيفاً بعد إعادة البناء
         } finally {
             ev.recycle()
         }

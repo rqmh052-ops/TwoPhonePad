@@ -60,6 +60,7 @@ class ControllerActivity : Activity() {
             ui.post { onLink(ev, text, ping) }
         }
         pad.onSend = { link.send(it) }
+        NetKeeper.start(this)
         link.start()
     }
 
@@ -193,7 +194,13 @@ class ControllerActivity : Activity() {
         toast("اسحب الزر لمكانه • اضغط مطولاً للخيارات • ثم حدّد مكانه على هاتف الشاشة")
     }
 
-    private fun modeName(m: Int) = when (m) { M_TOGGLE -> "تبديل (يبقى مضغوطاً)"; M_TURBO -> "تكرار تلقائي ⚡"; else -> "عادي (اضغط وأفلت)" }
+    private fun modeName(m: Int) = when (m) {
+        M_TOGGLE -> "تبديل (يبقى مضغوطاً)"
+        M_TURBO -> "تكرار تلقائي ⚡"
+        M_TAP -> "ضغطة واحدة فقط"
+        M_AIM -> "ضغط مستمر + تصويب بالسحب ◎"
+        else -> "ضغط مستمر (طالما ماسكه)"
+    }
 
     private fun itemMenu(item: PadItem) {
         val names = ArrayList<String>()
@@ -216,11 +223,12 @@ class ControllerActivity : Activity() {
     }
 
     private fun pickMode(item: PadItem) {
+        val modes = intArrayOf(M_TAP, M_HOLD, M_AIM, M_TOGGLE, M_TURBO)
         dlg().setTitle("وضع الضغط")
-            .setItems(arrayOf(modeName(M_HOLD), modeName(M_TOGGLE), modeName(M_TURBO))) { _, i ->
+            .setItems(modes.map { modeName(it) }.toTypedArray()) { _, i ->
                 item.latched = false
                 pad.latch(item, false)
-                item.mode = i
+                item.mode = modes[i]
                 saveAll(); pad.invalidate()
             }.show()
     }
@@ -320,6 +328,7 @@ class ControllerActivity : Activity() {
     override fun onDestroy() {
         pad.releaseAll()
         link.close()
+        NetKeeper.stop(this)
         super.onDestroy()
     }
 }

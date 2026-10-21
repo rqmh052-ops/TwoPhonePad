@@ -21,6 +21,8 @@ const val T_PAD = 1
 const val M_HOLD = 0
 const val M_TOGGLE = 1
 const val M_TURBO = 2
+const val M_TAP = 3 // ضغطة واحدة فقط: نقرة قصيرة تُنفَّذ على هاتف الشاشة مهما طال إمساكك
+const val M_AIM = 4 // ضغط مستمر + سحب: إصبع الزر يتحرك بنفس حركة إصبعك (إطلاق + تصويب)
 
 val PALETTE = listOf(
     "أزرق" to 0xFF3D7BFF.toInt(), "أخضر" to 0xFF22B573.toInt(), "أحمر" to 0xFFE5484D.toInt(),
@@ -124,7 +126,8 @@ class PadView(ctx: Context, var items: MutableList<PadItem>) : View(ctx) {
     // ───────────── منطق الحالة ─────────────
 
     private fun update(it: PadItem) {
-        val want = it.latched || (it.touching && it.mode == M_HOLD && it.type == T_BTN)
+        val want = it.latched ||
+            (it.touching && (it.mode == M_HOLD || it.mode == M_AIM) && it.type == T_BTN)
         if (want != it.sent) {
             it.sent = want
             onSend(if (want) "D ${it.id}" else "U ${it.id}")
@@ -256,6 +259,7 @@ class PadView(ctx: Context, var items: MutableList<PadItem>) : View(ctx) {
             it.type == T_PAD -> onSend("P D")
             it.mode == M_TOGGLE -> { it.latched = !it.latched; update(it) }
             it.mode == M_TURBO -> startTurbo(it)
+            it.mode == M_TAP -> onSend("T ${it.id}")
             else -> update(it)
         }
         invalidate()
@@ -286,6 +290,13 @@ class PadView(ctx: Context, var items: MutableList<PadItem>) : View(ctx) {
             }
             padX = x; padY = y
             invalidate()
+        } else if (it.mode == M_AIM && it.touching) {
+            t.ax += x - t.lx; t.ay += y - t.ly
+            val ix = t.ax.toInt(); val iy = t.ay.toInt()
+            if (ix != 0 || iy != 0) {
+                onSend("DM ${it.id} $ix $iy")
+                t.ax -= ix; t.ay -= iy
+            }
         }
         t.lx = x; t.ly = y
     }
@@ -384,7 +395,10 @@ class PadView(ctx: Context, var items: MutableList<PadItem>) : View(ctx) {
         cv.drawText(it.label, cx, cy - (fm.ascent + fm.descent) / 2, txt)
         if (it.mode != M_HOLD) {
             txt.textSize = rad * 0.34f
-            cv.drawText(if (it.mode == M_TURBO) "⚡" else "⇅", cx, cy + rad * 0.78f, txt)
+            cv.drawText(
+                when (it.mode) { M_TURBO -> "⚡"; M_TAP -> "×1"; M_AIM -> "◎"; else -> "⇅" },
+                cx, cy + rad * 0.78f, txt
+            )
         }
     }
 }

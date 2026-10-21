@@ -16,6 +16,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.InputType
 import android.text.method.DigitsKeyListener
@@ -38,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var tabRecv: TextView
     private lateinit var tabCtl: TextView
     private lateinit var startBtn: TextView
+    private lateinit var dotBtn: TextView
     private lateinit var infoTv: TextView
     private lateinit var scanTv: TextView
     private lateinit var devList: LinearLayout
@@ -151,6 +154,7 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }, 10)
         c1.put(statusRow("bt", "البلوتوث (مفعّل + صلاحية)", "تفعيل") { enableBt() }, 10)
+        c1.put(statusRow("batt", "استثناء توفير البطارية (يمنع قتل التطبيق)", "منح") { requestBattery() }, 10)
         sec.put(c1)
 
         startBtn = chip("تشغيل الاستقبال", Ui.GREEN) { toggleService() }
@@ -176,6 +180,8 @@ class MainActivity : Activity() {
                 toast("اضغط زر الرئيسية وافتح اللعبة — الأرقام ستبقى فوقها")
             }
         }, 12)
+        dotBtn = chip("", Ui.CARD2) { toggleDot() }
+        sec.put(dotBtn, 10)
         sec.put(chip("جعل البلوتوث قابلاً للاكتشاف (5 دقائق)", Ui.CARD2) {
             try {
                 startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
@@ -312,6 +318,28 @@ class MainActivity : Activity() {
         ui.postDelayed({ refresh() }, 300)
     }
 
+    private fun requestBattery() {
+        try {
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm.isIgnoringBatteryOptimizations(packageName)) { toast("مستثنى بالفعل ✓"); return }
+            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+        } catch (_: Throwable) {
+            try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            catch (t: Throwable) { toast("تعذّر: ${t.message}") }
+        }
+    }
+
+    /** المربع الصغير «1» فوق التطبيقات (اختياري) — يبقي النظام يعتبر التطبيق ظاهراً فلا يقتله. */
+    private fun toggleDot() {
+        val on = !prefs.getBoolean("dot", false)
+        if (on && !Settings.canDrawOverlays(this)) { toast("فعّل «العرض فوق التطبيقات» أولاً"); return }
+        prefs.edit().putBoolean("dot", on).apply()
+        if (ReceiverService.running) {
+            startForegroundService(Intent(this, ReceiverService::class.java).setAction(ReceiverService.ACTION_DOT))
+        }
+        refresh()
+    }
+
     private fun enableBt() {
         askPermissions()
         try {
@@ -342,6 +370,10 @@ class MainActivity : Activity() {
         val btPerm = Build.VERSION.SDK_INT < 31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         val btOn = try { getSystemService(BluetoothManager::class.java)?.adapter?.isEnabled == true } catch (_: Throwable) { false }
         dot("bt", btPerm && btOn)
+        dot("batt", try { getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName) } catch (_: Throwable) { false })
+        val dotOn = prefs.getBoolean("dot", false)
+        dotBtn.text = if (dotOn) "نقطة الإبقاء «1» فوق التطبيقات: مفعّلة ✓" else "نقطة الإبقاء «1» فوق التطبيقات (اختياري): متوقفة"
+        dotBtn.background = bg(if (dotOn) Ui.GREEN else Ui.CARD2, 14)
 
         val run = ReceiverService.running
         startBtn.text = if (run) "إيقاف الاستقبال" else "تشغيل الاستقبال"
@@ -359,6 +391,11 @@ class MainActivity : Activity() {
         sb.append("                 mDNS ${mk(ReceiverService.nsdOk)}   Bluetooth ${mk(ReceiverService.btOk)}\n\n")
         val p = ReceiverService.peer
         sb.append(if (p != null) "🟢 متصل الآن: $p عبر ${ReceiverService.via}" else "⚪ لا يوجد جهاز متصل")
+        if (ReceiverService.lastDrop.isNotEmpty()) {
+            val ago = (SystemClock.uptimeMillis() - ReceiverService.lastDropAt) / 1000
+            sb.append("\n\nآخر انقطاع: ${ReceiverService.lastDrop} (قبل $ago ث)")
+        }
+        Injector.lastError?.let { sb.append("\n\n⚠ حقن اللمس: $it") }
         infoTv.text = sb.toString()
     }
 
