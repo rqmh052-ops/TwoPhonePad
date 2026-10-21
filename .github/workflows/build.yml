@@ -9,9 +9,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Arrange files
         run: |
-          mkdir -p src/main/java/com/padlink/app
+          mkdir -p src/main/java/com/padlink/app src/main/res/drawable
           mv *.kt src/main/java/com/padlink/app/
           mv AndroidManifest.xml src/main/
+          mv ic_launcher.xml src/main/res/drawable/
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
